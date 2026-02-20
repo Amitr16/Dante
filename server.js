@@ -447,14 +447,14 @@ app.post('/api/chat', async (req, res) => {
     let j;
 
     // In Render userspace-networking mode, normal TCP routing to tailnet IPs may not work.
-    // If tailscaled is present, prefer `tailscale curl` which uses the netstack directly.
-    if (process.env.TAILSCALE_SOCKET) {
+    // Use tailscaled's SOCKS5 server + system curl (more portable than `tailscale curl`).
+    if (process.env.TAILSCALE_SOCKS5) {
       const { execFile } = require('child_process');
       const payload = JSON.stringify({ anonUserId, threadId, text });
       const args = [
-        '--socket', process.env.TAILSCALE_SOCKET,
-        'curl',
         '-sS',
+        '--fail-with-body',
+        '--socks5-hostname', process.env.TAILSCALE_SOCKS5.replace(/^https?:\/\//, ''),
         '-X', 'POST',
         '-H', 'Content-Type: application/json',
         '-H', `x-dante-secret: ${DANTE_SHARED_SECRET}`,
@@ -463,12 +463,12 @@ app.post('/api/chat', async (req, res) => {
       ];
 
       j = await new Promise((resolve, reject) => {
-        execFile('tailscale', args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-          if (err) return reject(new Error(`tailscale curl failed: ${stderr || err.message || String(err)}`));
+        execFile('curl', args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+          if (err) return reject(new Error(`tailscale proxy curl failed: ${stderr || err.message || String(err)}`));
           try {
             resolve(JSON.parse(stdout));
           } catch (e) {
-            reject(new Error(`tailscale curl non-json reply: ${String(stdout).slice(0, 400)}`));
+            reject(new Error(`tailscale proxy curl non-json reply: ${String(stdout).slice(0, 400)}`));
           }
         });
       });

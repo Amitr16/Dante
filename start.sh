@@ -19,6 +19,7 @@ echo "Starting tailscaled..."
   --state=/tmp/tailscale/tailscaled.state \
   --socket=/tmp/tailscale/tailscaled.sock \
   --tun=userspace-networking \
+  --socks5-server=127.0.0.1:1055 \
   --port=41641 \
   >/tmp/tailscaled.log 2>&1 &
 
@@ -44,8 +45,9 @@ echo "Bringing up tailscale..."
 
 /usr/bin/tailscale --socket=/tmp/tailscale/tailscaled.sock status || true
 
-# Expose socket path to the Node app so it can use `tailscale curl` in userspace networking mode.
+# Expose socket path + SOCKS proxy for userspace networking mode.
 export TAILSCALE_SOCKET=/tmp/tailscale/tailscaled.sock
+export TAILSCALE_SOCKS5=http://127.0.0.1:1055
 
 echo "Starting web server..."
 exec node server.js
