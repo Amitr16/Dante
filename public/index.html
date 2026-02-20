@@ -364,7 +364,23 @@
     @media (max-width: 880px){
       .chips{ grid-template-columns: 1fr; }
       .hero{ inset: 84px 0 110px 0; padding: 0 10px; }
-      .app{ grid-template-columns: 62px 1fr; }
+      .app{ grid-template-columns: 68px 1fr; }
+
+      /* Make mobile text + tap targets bigger */
+      .topbar .title{ font-size: 15px; }
+      .small{ font-size: 13px; }
+      .bubble{ font-size: 15px; line-height: 1.55; }
+      .statusCard{ font-size: 13px; }
+
+      .brandMark{ width:48px; height:48px; border-radius: 14px; }
+      .railBtn{ width:48px; height:48px; border-radius: 14px; font-size: 18px; }
+
+      textarea{ height: 52px; font-size: 15px; }
+      .sendBtn{ width:48px; height:48px; border-radius: 14px; }
+      .miniBtn{ font-size: 13px; padding: 9px 12px; }
+
+      .threadTitle{ font-size: 14px; }
+      .threadMeta{ font-size: 12px; }
     }
 
   </style>
@@ -394,7 +410,7 @@
       <div class="topbar">
         <div class="title">D.A.N.T.E</div>
         <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
-        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1520</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1524</div>
       </div>
 
       <div class="stage">
@@ -445,7 +461,7 @@
       if (!s) return;
       const chartOk = !!window.Chart;
       const ex = extra ? ` | ${extra}` : '';
-      s.textContent = `web-ui v2026-02-20-1520 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+      s.textContent = `web-ui v2026-02-20-1524 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
     } catch {}
   }
 
