@@ -444,19 +444,54 @@ app.post('/api/chat', async (req, res) => {
     await dbTouchThread(threadId);
 
     // Call Mac relay
-    const r = await fetch(DANTE_BOT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-dante-secret': DANTE_SHARED_SECRET
-      },
-      body: JSON.stringify({ anonUserId, threadId, text })
-    });
+    let j;
 
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.ok) {
-      const detail = j && (j.error || j.message) ? (j.error || j.message) : `HTTP ${r.status}`;
-      throw new Error(`bot error: ${detail}`);
+    // In Render userspace-networking mode, normal TCP routing to tailnet IPs may not work.
+    // If tailscaled is present, prefer `tailscale curl` which uses the netstack directly.
+    if (process.env.TAILSCALE_SOCKET) {
+      const { execFile } = require('child_process');
+      const payload = JSON.stringify({ anonUserId, threadId, text });
+      const args = [
+        '--socket', process.env.TAILSCALE_SOCKET,
+        'curl',
+        '-sS',
+        '-X', 'POST',
+        '-H', 'Content-Type: application/json',
+        '-H', `x-dante-secret: ${DANTE_SHARED_SECRET}`,
+        '--data-binary', payload,
+        DANTE_BOT_URL
+      ];
+
+      j = await new Promise((resolve, reject) => {
+        execFile('tailscale', args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+          if (err) return reject(new Error(`tailscale curl failed: ${stderr || err.message || String(err)}`));
+          try {
+            resolve(JSON.parse(stdout));
+          } catch (e) {
+            reject(new Error(`tailscale curl non-json reply: ${String(stdout).slice(0, 400)}`));
+          }
+        });
+      });
+
+      if (!j || !j.ok) {
+        const detail = j && (j.error || j.message) ? (j.error || j.message) : 'unknown bot error';
+        throw new Error(`bot error: ${detail}`);
+      }
+    } else {
+      const r = await fetch(DANTE_BOT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dante-secret': DANTE_SHARED_SECRET
+        },
+        body: JSON.stringify({ anonUserId, threadId, text })
+      });
+
+      j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        const detail = j && (j.error || j.message) ? (j.error || j.message) : `HTTP ${r.status}`;
+        throw new Error(`bot error: ${detail}`);
+      }
     }
 
     const reply = j.reply;

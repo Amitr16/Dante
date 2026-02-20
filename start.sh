@@ -44,5 +44,8 @@ echo "Bringing up tailscale..."
 
 /usr/bin/tailscale --socket=/tmp/tailscale/tailscaled.sock status || true
 
+# Expose socket path to the Node app so it can use `tailscale curl` in userspace networking mode.
+export TAILSCALE_SOCKET=/tmp/tailscale/tailscaled.sock
+
 echo "Starting web server..."
 exec node server.js
