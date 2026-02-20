@@ -175,7 +175,7 @@
     }
     .topbar .title{ font-size: 14px; letter-spacing: 0.22em; color: rgba(255,255,255,0.85); }
 
-    .stage{ height: calc(100vh - 22px - 18px); max-width: 100%; margin: 0; position:relative; }
+    .stage{ height: calc(100dvh - 22px - 18px); max-width: 100%; margin: 0; position:relative; }
 
     /* Hero / empty state */
     .hero{
@@ -312,6 +312,8 @@
 
     /* Composer */
     .composerWrap{ position:absolute; left:0; right:0; bottom: calc(14px + env(safe-area-inset-bottom)); display:flex; justify-content:center; padding: 0 10px; }
+/* On the home/empty state, lift the composer up so it's visible below the hero copy */
+.composerWrap.home{ bottom: calc(150px + env(safe-area-inset-bottom)); }
 
     .composer{
       width: min(980px, 100%);
@@ -392,7 +394,7 @@
       <div class="topbar">
         <div class="title">D.A.N.T.E</div>
         <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
-        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1510</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1520</div>
       </div>
 
       <div class="stage">
@@ -409,7 +411,7 @@
 
         <div class="chat" id="chat"></div>
 
-        <div class="composerWrap">
+        <div class="composerWrap" id="composerWrap">
           <div class="composer">
             <div class="promptSig">›</div>
             <textarea id="text" placeholder="Ask DANTE… (Ctrl+Enter to send)"></textarea>
@@ -443,7 +445,7 @@
       if (!s) return;
       const chartOk = !!window.Chart;
       const ex = extra ? ` | ${extra}` : '';
-      s.textContent = `web-ui v2026-02-20-1510 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+      s.textContent = `web-ui v2026-02-20-1520 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
     } catch {}
   }
 
@@ -604,8 +606,12 @@
   }
 
   function showHeroIfEmpty(messages) {
-    if (!messages || messages.length === 0) $('hero').classList.add('show');
+    const empty = (!messages || messages.length === 0);
+    if (empty) $('hero').classList.add('show');
     else $('hero').classList.remove('show');
+
+    const cw = document.getElementById('composerWrap');
+    if (cw) cw.classList.toggle('home', empty);
   }
 
   function markdownToHtml(md) {
@@ -1268,6 +1274,8 @@
     if (!text) return;
     ta.value = '';
     await sendText(text);
+    // Mobile UX: dismiss keyboard after send
+    try { ta.blur(); } catch {}
   };
 
   $('text').addEventListener('keydown', (e) => {
@@ -1285,7 +1293,13 @@
     });
   });
 
-  refreshAll().catch(err => {
+  refreshAll().then(() => {
+    // Mobile UX: focus input on load (ChatGPT-style)
+    try {
+      const ta = $('text');
+      if (ta) setTimeout(() => ta.focus(), 250);
+    } catch {}
+  }).catch(err => {
     console.error(err);
     alert('Init failed: ' + err.message);
   });
