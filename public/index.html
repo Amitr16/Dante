@@ -414,7 +414,7 @@
       <div class="topbar">
         <div class="title">D.A.N.T.E</div>
         <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
-        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1532</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1536</div>
       </div>
 
       <div class="stage">
@@ -465,7 +465,7 @@
       if (!s) return;
       const chartOk = !!window.Chart;
       const ex = extra ? ` | ${extra}` : '';
-      s.textContent = `web-ui v2026-02-20-1532 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+      s.textContent = `web-ui v2026-02-20-1536 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
     } catch {}
   }
 
@@ -477,6 +477,11 @@
 
     // First try header-based detection
     const headers = Array.from(tableEl.querySelectorAll('thead th')).map(th => (th.innerText || '').trim().toLowerCase());
+
+    // Don't treat flow/DV01 breakdown tables as a simple series (keep as table)
+    const flowish = headers.some(h => h.includes('dv01') || h === 'pay' || h === 'rec' || h.includes('indet') || h.includes('indeterminate') || h === 'net' || h.includes('total'));
+    if (flowish && headers.length > 2) return null;
+
     let idxDate = headers.findIndex(h => h === 'date' || h.includes('trade date'));
     let idxVal = headers.findIndex(h => h === 'value' || h.includes('level') || h.includes('rate') || h.includes('px') || h.includes('mid'));
 
@@ -1083,8 +1088,10 @@
           if (pts2 && pts2.length >= 2) {
             setBuildStamp(`seriesPts:${pts2.length}`);
             injectChartAboveExistingTable(surface, table, pts2);
-            // If we successfully chart a series table, hide the table (keep CSV available via tools)
-            table.style.display = 'none';
+            // If we successfully chart a simple 2-col series table, hide the table
+            if ((table.querySelectorAll('thead th') || []).length <= 2) {
+              table.style.display = 'none';
+            }
           }
 
           const tools = document.createElement('div');
