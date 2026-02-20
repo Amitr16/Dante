@@ -36,6 +36,7 @@ if (!DEV_NODB && DB_KIND === 'sqlite') {
 
 const DANTE_BOT_URL = process.env.DANTE_BOT_URL; // e.g. http://100.102.7.53:8787/chat
 const DANTE_SHARED_SECRET = process.env.DANTE_SHARED_SECRET;
+const DANTE_UI_ADMIN_SECRET = process.env.DANTE_UI_ADMIN_SECRET;
 
 // In-memory store (DEV_NODB)
 const mem = {
@@ -181,6 +182,144 @@ async function dbGetHistory(threadId) {
   throw new Error(`unsupported DB_KIND: ${DB_KIND}`);
 }
 
+function defaultUiConfig() {
+  return {
+    version: 1,
+    theme: {
+      fontScale: 1.0,
+      composerBg: 'rgba(255,255,255,0.07)',
+      composerBorder: 'rgba(255,255,255,0.14)',
+      userBubbleBg: 'rgba(47,191,113,0.12)',
+      userBubbleBorder: 'rgba(47,191,113,0.32)'
+    },
+    layout: {
+      mobileComposerBottomPx: 36
+    },
+    charts: {
+      autoChartSeriesTables: true,
+      hideSeriesTable: true
+    }
+  };
+}
+
+function deepSet(obj, pathStr, value) {
+  const parts = String(pathStr || '').split('.').filter(Boolean);
+  if (!parts.length) return;
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (typeof cur[k] !== 'object' || cur[k] === null) cur[k] = {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+function validateUiPatch(patch) {
+  // patch is a flat map: {"theme.fontScale": 1.1, ...}
+  const out = {};
+  const allowed = new Set([
+    'theme.fontScale',
+    'theme.composerBg',
+    'theme.composerBorder',
+    'theme.userBubbleBg',
+    'theme.userBubbleBorder',
+    'layout.mobileComposerBottomPx',
+    'charts.autoChartSeriesTables',
+    'charts.hideSeriesTable'
+  ]);
+
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (!allowed.has(k)) throw new Error(`ui_patch key not allowed: ${k}`);
+
+    if (k === 'theme.fontScale') {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0.85 || n > 1.5) throw new Error('theme.fontScale out of range (0.85..1.5)');
+      out[k] = n;
+      continue;
+    }
+
+    if (k === 'layout.mobileComposerBottomPx') {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 160) throw new Error('layout.mobileComposerBottomPx out of range (0..160)');
+      out[k] = Math.round(n);
+      continue;
+    }
+
+    if (k.startsWith('charts.')) {
+      out[k] = !!v;
+      continue;
+    }
+
+    if (k.startsWith('theme.')) {
+      const s = String(v);
+      if (s.length > 120) throw new Error(`${k} too long`);
+      out[k] = s;
+      continue;
+    }
+
+    throw new Error(`ui_patch validation missing for key: ${k}`);
+  }
+
+  return out;
+}
+
+function applyUiPatch(config, patchFlat) {
+  const cfg = JSON.parse(JSON.stringify(config || defaultUiConfig()));
+  for (const [k, v] of Object.entries(patchFlat || {})) {
+    deepSet(cfg, k, v);
+  }
+  cfg.updated_at = new Date().toISOString();
+  return cfg;
+}
+
+async function dbGetUiConfig() {
+  if (DEV_NODB) return defaultUiConfig();
+
+  if (DB_KIND === 'pg') {
+    const r = await pool.query('select config_json from ui_config where id=$1', ['global']);
+    if (r.rowCount === 0) return defaultUiConfig();
+    return r.rows[0].config_json;
+  }
+
+  if (DB_KIND === 'sqlite') {
+    const row = sqlite.prepare('select config_json from ui_config where id=?').get('global');
+    if (!row) return defaultUiConfig();
+    try { return JSON.parse(row.config_json); } catch { return defaultUiConfig(); }
+  }
+
+  throw new Error(`unsupported DB_KIND: ${DB_KIND}`);
+}
+
+async function dbPutUiConfig(config) {
+  if (DEV_NODB) return;
+
+  const payload = config || defaultUiConfig();
+
+  if (DB_KIND === 'pg') {
+    await pool.query(
+      'insert into ui_config(id, config_json, updated_at) values($1,$2,now()) on conflict (id) do update set config_json=excluded.config_json, updated_at=now()',
+      ['global', payload]
+    );
+    return;
+  }
+
+  if (DB_KIND === 'sqlite') {
+    sqlite.prepare(
+      'insert into ui_config(id, config_json, updated_at) values(?,?,?) on conflict(id) do update set config_json=excluded.config_json, updated_at=excluded.updated_at'
+    ).run('global', JSON.stringify(payload), dbNow());
+    return;
+  }
+
+  throw new Error(`unsupported DB_KIND: ${DB_KIND}`);
+}
+
+async function dbPatchUiConfig(patchFlat) {
+  const current = await dbGetUiConfig();
+  const next = applyUiPatch(current, patchFlat);
+  await dbPutUiConfig(next);
+  return next;
+}
+
 async function migrate() {
   if (DEV_NODB) return;
 
@@ -208,6 +347,12 @@ async function migrate() {
       created_at timestamptz not null default now()
     );
     create index if not exists idx_messages_thread_time on messages(thread_id, created_at asc);
+
+    create table if not exists ui_config (
+      id text primary key,
+      config_json jsonb not null,
+      updated_at timestamptz not null default now()
+    );
     `;
 
     const client = await pool.connect();
@@ -246,6 +391,12 @@ async function migrate() {
       foreign key (thread_id) references threads(thread_id) on delete cascade
     );
     create index if not exists idx_messages_thread_time on messages(thread_id, created_at asc);
+
+    create table if not exists ui_config (
+      id text primary key,
+      config_json text not null,
+      updated_at text not null
+    );
     `;
 
     sqlite.exec(sql);
@@ -283,6 +434,37 @@ app.get('/api/health', async (_req, res) => {
     res.json({ ok: true, ...h });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// Global UI config (read-only for web users)
+app.get('/api/ui-config', async (_req, res) => {
+  try {
+    const cfg = await dbGetUiConfig();
+    res.json({ ok: true, config: cfg });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || String(e) });
+  }
+});
+
+// Admin-only patch (to be called from Telegram admin control-plane)
+app.post('/api/ui-config/patch', async (req, res) => {
+  try {
+    const secret = req.get('x-dante-admin') || '';
+    if (!DANTE_UI_ADMIN_SECRET || secret !== DANTE_UI_ADMIN_SECRET) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const { patch } = req.body || {};
+    if (!patch || typeof patch !== 'object') {
+      return res.status(400).json({ ok: false, error: 'missing patch' });
+    }
+
+    const patchFlat = validateUiPatch(patch);
+    const cfg = await dbPatchUiConfig(patchFlat);
+    res.json({ ok: true, config: cfg });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || String(e) });
   }
 });
 
