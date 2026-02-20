@@ -311,11 +311,12 @@
     .miniBtn:hover{ border-color: rgba(84,240,255,0.22); background: rgba(84,240,255,0.06); }
 
     /* Composer */
-    .composerWrap{ position:absolute; left:0; right:0; bottom: calc(14px + env(safe-area-inset-bottom)); display:flex; justify-content:center; padding: 0 10px; }
+    .composerWrap{ position:absolute; left:0; right:0; bottom: calc(24px + env(safe-area-inset-bottom)); display:flex; justify-content:center; padding: 0 10px; }
 /* On the home/empty state, lift the composer up so it's visible below the hero copy */
 .composerWrap.home{ bottom: calc(150px + env(safe-area-inset-bottom)); }
 
     .composer{
+      /* Slightly lighter so it stands out from the background on mobile */
       width: min(980px, 100%);
       border-radius: 14px;
       border: 1px solid rgba(255,255,255,0.14);
@@ -366,6 +367,9 @@
       .hero{ inset: 84px 0 110px 0; padding: 0 10px; }
       .app{ grid-template-columns: 68px 1fr; }
 
+      /* Lift composer a bit more on mobile to clear Android bottom bars */
+      .composerWrap{ bottom: calc(36px + env(safe-area-inset-bottom)); }
+
       /* Make mobile text + tap targets bigger */
       .topbar .title{ font-size: 15px; }
       .small{ font-size: 13px; }
@@ -410,7 +414,7 @@
       <div class="topbar">
         <div class="title">D.A.N.T.E</div>
         <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
-        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1526</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1530</div>
       </div>
 
       <div class="stage">
@@ -461,7 +465,7 @@
       if (!s) return;
       const chartOk = !!window.Chart;
       const ex = extra ? ` | ${extra}` : '';
-      s.textContent = `web-ui v2026-02-20-1526 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+      s.textContent = `web-ui v2026-02-20-1530 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
     } catch {}
   }
 
