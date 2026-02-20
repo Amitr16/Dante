@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DANTE</title>
+
+  <!-- Markdown rendering (client-side) -->
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/purify.min.js"></script>
+  <!-- Charts (client-side, optional) -->
+  <script src="/vendor/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg0:#07090f;
+      --bg1:#070a12;
+      --panel:#0b1020;
+      --text:#e9ecf8;
+      --muted:#9aa4c7;
+      --muted2:#6d7696;
+      --line:rgba(255,255,255,0.08);
+      --line2:rgba(255,255,255,0.12);
+      --chip:rgba(255,255,255,0.04);
+      --chipHover:rgba(255,255,255,0.07);
+      --accent:#54f0ff;
+      --accent2:#2fbf71;
+      --shadow:0 16px 60px rgba(0,0,0,0.55);
+      --radius:16px;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:
+        radial-gradient(1200px 700px at 40% 55%, rgba(84,240,255,0.08), transparent 60%),
+        radial-gradient(900px 600px at 70% 20%, rgba(47,191,113,0.06), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:var(--text);
+      height:100vh;
+      overflow:hidden;
+    }
+
+    .app{ display:grid; grid-template-columns: 74px 1fr; height:100vh; }
+
+    /* Left rail */
+    .rail{
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border-right:1px solid var(--line);
+      padding:14px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      align-items:center;
+    }
+
+    .brandMark{
+      width:42px;height:42px;
+      border-radius: 12px;
+      display:grid;place-items:center;
+      border:1px solid var(--line2);
+      background: rgba(255,255,255,0.02);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      user-select:none;
+      font-weight:700;
+      letter-spacing:0.08em;
+      color:rgba(255,255,255,0.9);
+    }
+
+    .railBtn{
+      width:42px;height:42px;
+      border-radius: 12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+      color:var(--muted);
+      cursor:pointer;
+      display:grid;place-items:center;
+      transition: 120ms ease;
+    }
+    .railBtn:hover{ background: rgba(255,255,255,0.04); color:var(--text); }
+
+    /* Drawer */
+    .drawerOverlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,0.55);
+      opacity:0;
+      pointer-events:none;
+      transition: 140ms ease;
+      z-index: 50;
+    }
+    .drawerOverlay.show{ opacity:1; pointer-events:auto; }
+
+    .drawer{
+      position:fixed;
+      top:0; left:0;
+      height:100vh;
+      width: min(340px, 86vw);
+      background: rgba(10,14,28,0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-right: 1px solid var(--line);
+      transform: translateX(-102%);
+      transition: 160ms ease;
+      z-index: 60;
+      display:flex;
+      flex-direction:column;
+    }
+    .drawer.show{ transform: translateX(0); }
+
+    .drawerTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .drawerTop .t{ letter-spacing: 0.22em; font-size: 13px; color: rgba(255,255,255,0.85); }
+
+    .drawerList{ overflow:auto; padding: 10px 8px; }
+
+    .threadItem{
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin: 6px 6px;
+      background: rgba(255,255,255,0.02);
+    }
+    .threadItem:hover{ background: rgba(255,255,255,0.04); }
+    .threadItem.active{ border-color: rgba(84,240,255,0.22); background: rgba(84,240,255,0.05); }
+    .threadTitle{ font-size: 13px; color: rgba(255,255,255,0.92); line-height:1.2; }
+    .threadMeta{ font-size: 11px; color: var(--muted2); margin-top: 4px; }
+    .threadEdit{
+      flex:0 0 auto;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      cursor:pointer;
+    }
+    .threadEdit:hover{ color: var(--text); background: rgba(255,255,255,0.05); }
+
+    .drawerActions{ padding: 12px 14px; border-top: 1px solid var(--line); display:flex; gap:10px; }
+    .btn{
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor:pointer;
+      font-size: 13px;
+      flex:1;
+    }
+    .btn.primary{ border-color: rgba(84,240,255,0.35); }
+
+    /* Main */
+    .main{ position:relative; padding: 22px 18px; overflow:hidden; }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:10px;
+      margin-bottom: 12px;
+      color: var(--muted);
+    }
+    .topbar .title{ font-size: 14px; letter-spacing: 0.22em; color: rgba(255,255,255,0.85); }
+
+    .stage{ height: calc(100vh - 22px - 18px); max-width: 100%; margin: 0; position:relative; }
+
+    /* Hero / empty state */
+    .hero{
+      position:absolute;
+      inset: 100px 0 110px 0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      gap:14px;
+      opacity:0;
+      pointer-events:none;
+      transition: 160ms ease;
+    }
+    .hero.show{ opacity:1; pointer-events:auto; }
+
+    .bird{ width:42px;height:42px; opacity:0.9; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.45)); }
+
+    .hero h1{ margin:0; font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.92); }
+
+    .hero .sub{ font-size: 13px; color: var(--muted); max-width: 720px; line-height:1.45; }
+
+    .chips{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; width: min(820px, 100%); margin-top: 8px; }
+
+    .chip{
+      text-align:left;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border:1px solid var(--line);
+      background: var(--chip);
+      color: rgba(255,255,255,0.85);
+      cursor:pointer;
+      transition:120ms ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+    .chip:hover{ background: var(--chipHover); border-color: rgba(255,255,255,0.14); }
+    .chip .k{ font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .chip .v{ font-size: 13px; line-height:1.35; }
+
+    /* Chat area */
+    .chat{ position:absolute; inset: 60px 0 96px 0; overflow:auto; padding: 8px 14px 18px 14px; scrollbar-width: thin; }
+
+    .bubbleRow{ display:flex; margin: 14px 0; gap: 10px; }
+    .bubbleRow.user{ justify-content:flex-end; }
+    .bubbleRow.assistant{ justify-content:flex-start; }
+
+    .bubble{
+      max-width: 100%;
+      border-radius: 16px;
+      padding: 12px 14px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      box-shadow: var(--shadow);
+      white-space: pre-wrap;
+      line-height:1.45;
+      font-size: 13px;
+    }
+
+    /* ChatGPT-style: assistant spans full width with no card container */
+    .bubble.assistant{
+      width: 100%;
+      max-width: 100%;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    .bubble.user{ background: rgba(84,240,255,0.06); border-color: rgba(84,240,255,0.18); }
+
+    .statusCard{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(47,191,113,0.18);
+      background: rgba(47,191,113,0.07);
+      color: rgba(226,255,240,0.92);
+      font-size: 12px;
+      width: fit-content;
+      max-width: min(780px, 92%);
+      box-shadow: 0 16px 50px rgba(0,0,0,0.45);
+    }
+    .statusDot{ width:8px;height:8px;border-radius:99px;background:var(--accent2); box-shadow:0 0 0 3px rgba(47,191,113,0.18); }
+
+    /* Markdown styling */
+    .md h1,.md h2,.md h3{ margin: 10px 0 8px 0; }
+    .md h1{ font-size: 16px; }
+    .md h2{ font-size: 15px; }
+    .md h3{ font-size: 14px; }
+    .md p{ margin: 8px 0; }
+    .md ul{ margin: 8px 0 8px 18px; padding:0; }
+    .md li{ margin: 4px 0; }
+    .md code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .md pre{
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.35);
+      overflow:auto;
+    }
+
+    /* A subtle "content surface" for assistant markdown (but still full width) */
+    .assistantSurface{
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.02);
+      padding: 14px 14px;
+      box-shadow: 0 18px 70px rgba(0,0,0,0.35);
+    }
+    .md table, .assistantSurface table{ width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; overflow: hidden; }
+    .md th,.md td, .assistantSurface th, .assistantSurface td{ border-bottom: 1px solid rgba(255,255,255,0.10); padding: 8px 10px; text-align:left; }
+    .md th, .assistantSurface th{ color: rgba(255,255,255,0.88); border-bottom: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); }
+    .md td, .assistantSurface td{ border-right: 1px solid rgba(255,255,255,0.06); }
+    .md tr td:last-child, .assistantSurface tr td:last-child{ border-right: none; }
+    .md a{ color: rgba(84,240,255,0.9); text-decoration:none; }
+    .md a:hover{ text-decoration:underline; }
+
+    .msgTools{ margin-top: 8px; display:flex; gap:8px; }
+    .miniBtn{
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.86);
+      border-radius: 10px;
+      padding: 7px 10px;
+      cursor:pointer;
+      font-size: 12px;
+    }
+    .miniBtn:hover{ border-color: rgba(84,240,255,0.22); background: rgba(84,240,255,0.06); }
+
+    /* Composer */
+    .composerWrap{ position:absolute; left:0; right:0; bottom: 14px; display:flex; justify-content:center; padding: 0 10px; }
+
+    .composer{
+      width: min(980px, 100%);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 10px 10px;
+    }
+
+    .promptSig{ color: rgba(84,240,255,0.65); font-weight:700; margin-left: 6px; user-select:none; }
+
+    textarea{
+      flex:1;
+      resize:none;
+      height: 44px;
+      max-height: 120px;
+      padding: 10px 10px;
+      border: none;
+      outline: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      line-height:1.35;
+    }
+
+    .sendBtn{
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.9);
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      transition:120ms ease;
+    }
+    .sendBtn:hover{ border-color: rgba(84,240,255,0.25); background: rgba(84,240,255,0.06); }
+
+    .small{ font-size: 12px; color: var(--muted); }
+
+    @media (max-width: 880px){
+      .chips{ grid-template-columns: 1fr; }
+      .hero{ inset: 84px 0 110px 0; padding: 0 10px; }
+      .app{ grid-template-columns: 62px 1fr; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="drawerOverlay" id="drawerOverlay"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawerTop">
+      <div class="t">CHATS</div>
+      <button class="railBtn" id="drawerClose" title="Close">×</button>
+    </div>
+    <div class="drawerList" id="threads"></div>
+    <div class="drawerActions">
+      <button class="btn primary" id="newThread">New</button>
+      <button class="btn" id="refreshThreads">Refresh</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="rail">
+      <div class="brandMark">D</div>
+      <button class="railBtn" id="drawerOpen" title="Menu">☰</button>
+      <div style="flex:1"></div>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="title">D.A.N.T.E</div>
+        <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1407</div>
+      </div>
+
+      <div class="stage">
+        <div class="hero" id="hero">
+          <svg class="bird" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M20.5 7.5c-.7.3-1.4.5-2.2.6.8-.5 1.4-1.2 1.7-2.2-.8.5-1.6.8-2.5 1-1.5-1.6-4.4-1-5.2 1.2-.3.7-.2 1.5 0 2.1-3.3-.2-6.3-1.8-8.3-4.5-1 1.8-.5 4.2 1.2 5.4-.6 0-1.2-.2-1.7-.5 0 2 1.4 3.8 3.4 4.2-.5.1-1 .2-1.6.1.5 1.7 2.1 3 4 3-1.6 1.3-3.7 2-6 1.7 2 1.3 4.3 2 6.8 2 7.5 0 11.8-6.4 11.8-12v-.6c.7-.5 1.3-1.1 1.8-1.8Z" fill="rgba(255,255,255,0.9)"/>
+          </svg>
+          <h1>I’m DANTE, DEON’s analytical AI layer.</h1>
+          <div class="sub">Ask in plain English — I’ll route and execute. Web relay is read-only (no global changes).</div>
+          <div class="sub" style="margin-top:6px; color: rgba(255,255,255,0.9);">
+            Analyse historical trades, Get latest structure prices and histories, perform statistical analysis
+          </div>
+        </div>
+
+        <div class="chat" id="chat"></div>
+
+        <div class="composerWrap">
+          <div class="composer">
+            <div class="promptSig">›</div>
+            <textarea id="text" placeholder="Ask DANTE… (Ctrl+Enter to send)"></textarea>
+            <button class="sendBtn" id="send" title="Send">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M5 12h12" stroke="rgba(255,255,255,0.92)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M13 6l6 6-6 6" stroke="rgba(255,255,255,0.92)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  // Configure marked
+  if (window.marked) {
+    marked.setOptions({
+      gfm: true,
+      breaks: true,
+      headerIds: false,
+      mangle: false
+    });
+  }
+
+  function setBuildStamp(extra) {
+    try {
+      const s = document.getElementById('buildStamp');
+      if (!s) return;
+      const chartOk = !!window.Chart;
+      const ex = extra ? ` | ${extra}` : '';
+      s.textContent = `web-ui v2026-02-20-1407 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+    } catch {}
+  }
+
+  // tiny runtime indicator (helps debug loading)
+  setBuildStamp('boot');
+
+  function seriesFromHtmlTable(tableEl) {
+    if (!tableEl) return null;
+
+    // First try header-based detection
+    const headers = Array.from(tableEl.querySelectorAll('thead th')).map(th => (th.innerText || '').trim().toLowerCase());
+    let idxDate = headers.findIndex(h => h === 'date' || h.includes('trade date'));
+    let idxVal = headers.findIndex(h => h === 'value' || h.includes('level') || h.includes('rate') || h.includes('px') || h.includes('mid'));
+
+    const rows = Array.from(tableEl.querySelectorAll('tbody tr'));
+    if (!rows.length) return null;
+
+    // Fallback: infer Date/Value columns by sampling (works even when headers are weird)
+    if (idxDate < 0 || idxVal < 0) {
+      const sample = rows.slice(0, 8).map(tr => Array.from(tr.querySelectorAll('td')).map(td => (td.innerText || '').trim()));
+      const width = Math.max(0, ...sample.map(r => r.length));
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      let best = null;
+      for (let i = 0; i < width; i++) {
+        const dateHits = sample.reduce((acc, r) => acc + (dateRe.test(r[i] || '') ? 1 : 0), 0);
+        if (dateHits < 2) continue;
+        for (let j = 0; j < width; j++) {
+          if (j === i) continue;
+          const numHits = sample.reduce((acc, r) => {
+            const v = parseFloat(String(r[j] || '').replace(/[,$]/g,'').trim());
+            return acc + (!Number.isNaN(v) ? 1 : 0);
+          }, 0);
+          if (numHits < 2) continue;
+          const score = dateHits * 10 + numHits;
+          if (!best || score > best.score) best = { score, i, j };
+        }
+      }
+      if (!best) return null;
+      idxDate = best.i;
+      idxVal = best.j;
+    }
+
+    const pts = [];
+    for (const tr of rows) {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if (tds.length <= Math.max(idxDate, idxVal)) continue;
+      const d = (tds[idxDate].innerText || '').trim();
+      const vraw = (tds[idxVal].innerText || '').replace(/[,$]/g,'').trim();
+      const v = parseFloat(vraw);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      if (Number.isNaN(v)) continue;
+      pts.push({ date: d, value: v });
+    }
+
+    if (pts.length < 2) return null;
+    pts.sort((a,b) => a.date.localeCompare(b.date));
+    return pts;
+  }
+
+  function injectChartAboveExistingTable(surfaceEl, tableEl, pts) {
+    if (!surfaceEl || !tableEl || !pts || pts.length < 2 || !window.Chart) return;
+    // avoid double charts
+    if (surfaceEl.querySelector('canvas.__seriesChart')) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.className = '__seriesChart';
+    canvas.style.margin = '6px 0 12px 0';
+    canvas.style.maxHeight = '320px';
+    canvas.style.height = '320px';
+    canvas.height = 320;
+
+    tableEl.parentNode.insertBefore(canvas, tableEl);
+
+    // Current level (last point)
+    try {
+      const lastPt = pts[pts.length - 1];
+      const level = document.createElement('div');
+      level.className = 'small';
+      level.style.margin = '2px 0 10px 0';
+      level.style.opacity = '0.95';
+      level.style.fontSize = '13px';
+      level.style.fontWeight = '700';
+      level.style.color = 'rgba(255,255,255,0.92)';
+      level.textContent = `Current level (${lastPt.date}): ${lastPt.value}`;
+      canvas.parentNode.insertBefore(level, tableEl);
+    } catch {}
+
+    const ctx = canvas.getContext('2d');
+    // Defer chart init until after layout (prevents 0-width canvas issues)
+    requestAnimationFrame(() => {
+      new Chart(ctx, {
+        type: 'line',
+      data: {
+        labels: pts.map(p => p.date),
+        datasets: [{
+          label: 'Value',
+          data: pts.map(p => p.value),
+          borderColor: 'rgba(84,240,255,0.75)',
+          backgroundColor: 'rgba(84,240,255,0.10)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.15,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(159,183,173,.85)', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.06)' } },
+          y: { ticks: { color: 'rgba(159,183,173,.85)' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+        }
+      }
+    });
+    });
+  }
+
+  function getAnonUserId() {
+    const k = 'dante_anon_user_id';
+    let id = localStorage.getItem(k);
+    if (!id) {
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random();
+      localStorage.setItem(k, id);
+    }
+    return id;
+  }
+
+  const anonUserId = getAnonUserId();
+  let activeThreadId = null;
+  let threadsCache = [];
+
+  const $ = (id) => document.getElementById(id);
+
+  async function apiGet(url) {
+    const r = await fetch(url);
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+
+  async function apiPost(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+
+  async function apiPatch(url, body) {
+    const r = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+
+  function fmtTs(ts) {
+    try { return new Date(ts).toLocaleString(); } catch { return ''; }
+  }
+
+  function showHeroIfEmpty(messages) {
+    if (!messages || messages.length === 0) $('hero').classList.add('show');
+    else $('hero').classList.remove('show');
+  }
+
+  function markdownToHtml(md) {
+    if (!window.marked) return `<pre>${escapeHtml(md)}</pre>`;
+    const raw = marked.parse(String(md));
+    if (window.DOMPurify) return DOMPurify.sanitize(raw);
+    return raw;
+  }
+
+  function looksLikeMonospaceTable(text) {
+    // Heuristic: multiple lines; header has 2+ spaces between columns; and at least 3 columns.
+    const lines = String(text || '').split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.trim().length);
+    if (lines.length < 3) return false;
+    const header = lines[0];
+    const cols = header.split(/\s{2,}/).filter(Boolean);
+    if (cols.length < 3) return false;
+    // Next line not required to be --- but should also have multiple cols
+    const cols2 = lines[1].split(/\s{2,}/).filter(Boolean);
+    return cols2.length >= 2;
+  }
+
+  function monospaceTableToHtmlTable(text) {
+    const lines = String(text || '').split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.trim().length);
+    const headerCols = lines[0].trim().split(/\s{2,}/).filter(Boolean);
+    const bodyLines = lines.slice(1);
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    headerCols.forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    bodyLines.forEach(line => {
+      const cols = line.trim().split(/\s{2,}/).filter(Boolean);
+      // skip separator rows like ----
+      if (cols.length === 1 && /^[-–—]+$/.test(cols[0])) return;
+      if (cols.length < 2) return;
+
+      // pad/truncate
+      while (cols.length < headerCols.length) cols.push('');
+      const tr = document.createElement('tr');
+      cols.slice(0, headerCols.length).forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function convertPreTables(surfaceEl) {
+    const pres = Array.from(surfaceEl.querySelectorAll('pre > code'));
+    for (const code of pres) {
+      const txt = code.textContent || '';
+      if (!looksLikeMonospaceTable(txt)) continue;
+      const pre = code.closest('pre');
+      const table = monospaceTableToHtmlTable(txt);
+      pre.replaceWith(table);
+    }
+  }
+
+  function looksLikeDateValueSeries(text) {
+    const s = String(text || '');
+    const re = /(\d{4}-\d{2}-\d{2})\s+([-+]?\d+(?:\.\d+)?)/g;
+    let hits = 0;
+    while (re.exec(s) && hits < 6) hits += 1;
+    return hits >= 4;
+  }
+
+  function parseDateValueSeries(text) {
+    const s = String(text || '');
+    const re = /(\d{4}-\d{2}-\d{2})\s+([-+]?\d+(?:\.\d+)?)/g;
+    const pts = [];
+    let m;
+    while ((m = re.exec(s)) !== null) {
+      const date = m[1];
+      const value = parseFloat(m[2]);
+      if (!date || Number.isNaN(value)) continue;
+      pts.push({ date, value });
+    }
+    // de-dupe by date (keep last)
+    const byDate = new Map();
+    for (const p of pts) byDate.set(p.date, p.value);
+    const out = Array.from(byDate.entries()).map(([date, value]) => ({ date, value }));
+    out.sort((a,b) => a.date.localeCompare(b.date));
+    return out;
+  }
+
+  function injectSeriesChartAndTable(surfaceEl, seriesPts) {
+    if (!surfaceEl || !seriesPts || seriesPts.length < 2 || !window.Chart) return;
+
+    // Chart
+    const canvas = document.createElement('canvas');
+    canvas.style.margin = '6px 0 12px 0';
+    canvas.style.maxHeight = '320px';
+    canvas.style.height = '320px';
+    canvas.height = 320;
+    surfaceEl.prepend(canvas);
+
+    // Current level (last point)
+    try {
+      const lastPt = seriesPts[seriesPts.length - 1];
+      const level = document.createElement('div');
+      level.className = 'small';
+      level.style.margin = '2px 0 10px 0';
+      level.style.opacity = '0.95';
+      level.style.fontSize = '13px';
+      level.style.fontWeight = '700';
+      level.style.color = 'rgba(255,255,255,0.92)';
+      level.textContent = `Current level (${lastPt.date}): ${lastPt.value}`;
+      canvas.insertAdjacentElement('afterend', level);
+    } catch {}
+
+    const ctx = canvas.getContext('2d');
+    // Defer chart init until after layout
+    requestAnimationFrame(() => {
+      new Chart(ctx, {
+        type: 'line',
+      data: {
+        labels: seriesPts.map(p => p.date),
+        datasets: [{
+          label: 'Value',
+          data: seriesPts.map(p => p.value),
+          borderColor: 'rgba(84,240,255,0.75)',
+          backgroundColor: 'rgba(84,240,255,0.10)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.15,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.parsed.y}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: 'rgba(159,183,173,.85)', maxTicksLimit: 8 },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          },
+          y: {
+            ticks: { color: 'rgba(159,183,173,.85)' },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          }
+        }
+      }
+    });
+
+    // Table
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['Date','Value'].forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (const p of seriesPts) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.textContent = p.date;
+      const td2 = document.createElement('td');
+      td2.textContent = String(p.value);
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+
+    // Replace surface content with chart + table (keep any existing text minimal)
+    // If there is already a table, skip.
+    if (!surfaceEl.querySelector('table')) {
+      // Remove original md text nodes that were just the raw series
+      const md = surfaceEl.querySelector('.md');
+      if (md) md.remove();
+      surfaceEl.appendChild(table);
+    }
+
+    applyAtlasTableSchema(table);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
+
+  function tableToCsv(tableEl) {
+    const rows = Array.from(tableEl.querySelectorAll('tr'));
+    const lines = rows.map((tr) => {
+      const cells = Array.from(tr.querySelectorAll('th,td')).map((td) => {
+        const t = td.innerText.replace(/\r?\n/g, ' ').trim();
+        // CSV escape
+        if (/[",\n]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+        return t;
+      });
+      return cells.join(',');
+    });
+    return lines.join('\n');
+  }
+
+  function applyAtlasTableSchema(tableEl) {
+    if (!tableEl) return;
+
+    const headers = Array.from(tableEl.querySelectorAll('thead th')).map(th => (th.innerText || '').trim().toLowerCase());
+    const idxPay = headers.findIndex(h => h === 'pay' || (h.includes('pay') && !h.includes('repay')));
+    const idxRec = headers.findIndex(h => h === 'rec' || h.includes('rec') || h.includes('receive'));
+    const idxIndet = headers.findIndex(h => h.includes('indet') || h.includes('indeterminate') || h.includes('mid'));
+    const idxNet = headers.findIndex(h => h.includes('net'));
+
+    const idxPaid = headers.findIndex(h => h.includes('paid') && h.includes('dv01'));
+    const idxReceivedDv01 = headers.findIndex(h => h.includes('received') && h.includes('dv01') && !h.includes('net'));
+    const idxMid = headers.findIndex(h => (h.includes('mid') && h.includes('market')) || (h.includes('mid') && h.includes('dv01')));
+    const idxTotal = headers.findIndex(h => h.includes('total') && h.includes('dv01') && !h.includes('net'));
+    const idxNetDv01 = headers.findIndex(h => h.includes('net') && h.includes('paid'));
+
+    const GREEN = 'rgba(16,185,129,.85)';
+    const RED = 'rgba(239,68,68,.85)';
+    const WHITE = 'rgba(231,243,238,.90)';
+
+    const rows = Array.from(tableEl.querySelectorAll('tbody tr'));
+    for (const tr of rows) {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      // Totals row styling
+      const firstCell = (tds[0]?.innerText || '').trim().toUpperCase();
+      if (firstCell === 'TOTAL') {
+        tr.style.borderTop = '1px solid rgba(255,255,255,0.14)';
+        tr.style.fontWeight = '700';
+      }
+
+      tds.forEach((td, i) => {
+        const raw = (td.innerText || '').replace(/[,$]/g, '').trim();
+        const num = parseFloat(raw);
+        const isNum = !Number.isNaN(num);
+
+        let color = null;
+
+        // Flow-style tables: Pay/Rec/Indet + Net (match your request)
+        const isFlowTable = (idxPay >= 0 || idxRec >= 0 || idxIndet >= 0) && idxNet >= 0;
+        if (isFlowTable) {
+          if (i === idxIndet) color = WHITE;
+          else if (i === idxRec) color = RED;
+          else if (i === idxPay) color = GREEN;
+          else if (i === idxNet) color = isNum ? (num >= 0 ? GREEN : RED) : null;
+          else {
+            // For any other numeric column in a flow table: positive=green, negative=red
+            color = isNum ? (num >= 0 ? GREEN : RED) : null;
+          }
+        }
+
+        // DV01 metric tables (Atlas style)
+        if (i === idxPaid) color = GREEN;
+        else if (i === idxReceivedDv01) color = RED;
+        else if (i === idxMid) color = WHITE;
+        else if (i === idxTotal) color = WHITE;
+        else if (i === idxNetDv01) color = isNum ? (num >= 0 ? GREEN : RED) : null;
+
+        if (color && isNum) {
+          td.style.color = color;
+          td.style.fontWeight = '650';
+        }
+      });
+    }
+  }
+
+  function buildChartFromTable(tableEl) {
+    // Mimic atlas-ai chart heuristics: maturity breakdown (bar) or daily breakdown (bar)
+    if (!tableEl) return null;
+    const headers = Array.from(tableEl.querySelectorAll('thead th')).map(th => (th.innerText || '').trim());
+    const headersL = headers.map(h => h.toLowerCase());
+
+    const idxMaturity = headersL.findIndex(h => h.includes('maturity'));
+    const idxDate = headersL.findIndex(h => h === 'date' || h.includes('trade date'));
+
+    // Choose y-axis: net -> total -> paid -> received
+    const candidates = [
+      { key: 'net', idx: headersL.findIndex(h => h.includes('net') && h.includes('dv01')) },
+      { key: 'total', idx: headersL.findIndex(h => h.includes('total') && h.includes('dv01') && !h.includes('net')) },
+      { key: 'paid', idx: headersL.findIndex(h => h.includes('paid') && h.includes('dv01')) },
+      { key: 'received', idx: headersL.findIndex(h => h.includes('received') && h.includes('dv01') && !h.includes('net')) }
+    ].filter(x => x.idx >= 0);
+
+    const y = candidates[0];
+    if (!y) return null;
+
+    const rows = Array.from(tableEl.querySelectorAll('tbody tr'));
+    const pts = [];
+
+    const xIdx = idxMaturity >= 0 ? idxMaturity : (idxDate >= 0 ? idxDate : -1);
+    if (xIdx < 0) return null;
+
+    for (const tr of rows) {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if (tds.length <= Math.max(xIdx, y.idx)) continue;
+
+      const x = (tds[xIdx].innerText || '').trim();
+      if (!x || x.toUpperCase() === 'TOTAL') continue;
+
+      const raw = (tds[y.idx].innerText || '').replace(/[,$]/g, '').trim();
+      const num = parseFloat(raw);
+      if (Number.isNaN(num)) continue;
+
+      pts.push({ x, y: num });
+    }
+
+    if (pts.length < 2) return null;
+
+    const isMaturity = idxMaturity >= 0;
+    return {
+      type: 'bar',
+      xTitle: isMaturity ? 'Maturity' : 'Date',
+      yTitle: headers[y.idx],
+      points: pts,
+    };
+  }
+
+  function download(filename, text) {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function renderThreads() {
+    const el = $('threads');
+    el.innerHTML = '';
+
+    if (!threadsCache.length) {
+      el.innerHTML = `<div style="padding:14px; color: var(--muted); font-size:12px;">No conversations yet.</div>`;
+      return;
+    }
+
+    for (const t of threadsCache) {
+      const item = document.createElement('div');
+      item.className = 'threadItem' + (t.thread_id === activeThreadId ? ' active' : '');
+
+      const left = document.createElement('div');
+      left.style.flex = '1 1 auto';
+      left.innerHTML = `<div class="threadTitle"></div><div class="threadMeta">${escapeHtml(fmtTs(t.updated_at))}</div>`;
+      left.querySelector('.threadTitle').textContent = t.title || 'New chat';
+
+      const edit = document.createElement('button');
+      edit.className = 'threadEdit';
+      edit.title = 'Rename';
+      edit.textContent = '✎';
+
+      item.onclick = async () => {
+        activeThreadId = t.thread_id;
+        $('chatTitle').textContent = t.title || 'New chat';
+        hideDrawer();
+        await refreshHistory();
+      };
+
+      edit.onclick = async (e) => {
+        e.stopPropagation();
+        const cur = t.title || 'New chat';
+        const nt = prompt('Rename chat:', cur);
+        if (!nt) return;
+        await apiPatch(`/api/threads/${encodeURIComponent(t.thread_id)}`, { anonUserId, title: nt });
+        await refreshThreads();
+      };
+
+      item.appendChild(left);
+      item.appendChild(edit);
+      el.appendChild(item);
+    }
+  }
+
+  function renderMsgs(msgs) {
+    const el = $('chat');
+    el.innerHTML = '';
+
+    for (const m of msgs) {
+      const row = document.createElement('div');
+      row.className = 'bubbleRow ' + (m.role === 'user' ? 'user' : 'assistant');
+
+      if (m.role === 'system') {
+        const c = document.createElement('div');
+        c.className = 'statusCard';
+        c.innerHTML = `<div class="statusDot"></div><div>${escapeHtml(m.content)}</div>`;
+        row.appendChild(c);
+        el.appendChild(row);
+        continue;
+      }
+
+      const b = document.createElement('div');
+      b.className = 'bubble ' + (m.role === 'user' ? 'user' : 'assistant');
+
+      if (m.role === 'assistant') {
+        const html = markdownToHtml(m.content);
+        const md = document.createElement('div');
+        md.className = 'md';
+        md.innerHTML = html;
+
+        const surface = document.createElement('div');
+        surface.className = 'assistantSurface';
+        surface.appendChild(md);
+
+        // If the assistant produced ASCII/monospace tables (often in code blocks), convert them to real <table>
+        convertPreTables(surface);
+
+        // If the assistant produced a plain Date Value series (not markdown), render chart + table
+        if (looksLikeDateValueSeries(m.content)) {
+          const pts = parseDateValueSeries(m.content);
+          setBuildStamp(`seriesPtsRaw:${pts.length}`);
+          if (pts.length >= 2) {
+            injectSeriesChartAndTable(surface, pts);
+          }
+        }
+
+        b.innerHTML = '';
+        b.appendChild(surface);
+
+        // Atlas-like table schema + tools
+        const table = surface.querySelector('table');
+        if (table) {
+          applyAtlasTableSchema(table);
+
+          // Auto-chart Date/Value tables (web plot responses)
+          const pts2 = seriesFromHtmlTable(table);
+          if (pts2 && pts2.length >= 2) {
+            setBuildStamp(`seriesPts:${pts2.length}`);
+            injectChartAboveExistingTable(surface, table, pts2);
+            // If we successfully chart a series table, hide the table (keep CSV available via tools)
+            table.style.display = 'none';
+          }
+
+          const tools = document.createElement('div');
+          tools.className = 'msgTools';
+
+          // Optional chart
+          const chartSpec = buildChartFromTable(table);
+          if (chartSpec && window.Chart) {
+            const cbtn = document.createElement('button');
+            cbtn.className = 'miniBtn';
+            cbtn.textContent = 'Show chart';
+
+            let shown = false;
+            let canvas = null;
+            let chart = null;
+
+            cbtn.onclick = () => {
+              shown = !shown;
+              cbtn.textContent = shown ? 'Hide chart' : 'Show chart';
+
+              if (shown) {
+                canvas = document.createElement('canvas');
+                canvas.style.marginTop = '10px';
+                canvas.style.maxHeight = '280px';
+                surface.appendChild(canvas);
+
+                const ctx = canvas.getContext('2d');
+                chart = new Chart(ctx, {
+                  type: chartSpec.type,
+                  data: {
+                    labels: chartSpec.points.map(p => p.x),
+                    datasets: [{
+                      label: chartSpec.yTitle,
+                      data: chartSpec.points.map(p => p.y),
+                      backgroundColor: 'rgba(84,240,255,0.16)',
+                      borderColor: 'rgba(84,240,255,0.65)',
+                      borderWidth: 1.5
+                    }]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      title: { display: false }
+                    },
+                    scales: {
+                      x: {
+                        ticks: { color: 'rgba(159,183,173,.85)' },
+                        grid: { color: 'rgba(255,255,255,0.06)' }
+                      },
+                      y: {
+                        ticks: { color: 'rgba(159,183,173,.85)' },
+                        grid: { color: 'rgba(255,255,255,0.06)' }
+                      }
+                    }
+                  }
+                });
+              } else {
+                try { chart && chart.destroy(); } catch {}
+                chart = null;
+                if (canvas) canvas.remove();
+                canvas = null;
+              }
+            };
+
+            tools.appendChild(cbtn);
+          }
+
+          b.appendChild(tools);
+        }
+
+      } else {
+        b.textContent = m.content;
+      }
+
+      row.appendChild(b);
+      el.appendChild(row);
+    }
+
+    showHeroIfEmpty(msgs);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function showDrawer() {
+    $('drawer').classList.add('show');
+    $('drawerOverlay').classList.add('show');
+  }
+
+  function hideDrawer() {
+    $('drawer').classList.remove('show');
+    $('drawerOverlay').classList.remove('show');
+  }
+
+  function autoTitleFromText(text) {
+    const t = String(text || '').trim().replace(/\s+/g, ' ');
+    if (!t) return 'New chat';
+    // remove very long strings; keep 6-8 words
+    const words = t.replace(/[\r\n]+/g, ' ').split(' ').filter(Boolean);
+    const short = words.slice(0, 8).join(' ');
+    return short.length > 60 ? short.slice(0, 57) + '…' : short;
+  }
+
+  async function refreshThreads() {
+    const j = await apiGet(`/api/threads?anonUserId=${encodeURIComponent(anonUserId)}`);
+    threadsCache = j.threads || [];
+    if (!activeThreadId && threadsCache.length) activeThreadId = threadsCache[0].thread_id;
+    const cur = threadsCache.find(x => x.thread_id === activeThreadId);
+    $('chatTitle').textContent = cur?.title || 'New chat';
+    renderThreads();
+  }
+
+  async function refreshHistory() {
+    if (!activeThreadId) { renderMsgs([]); return; }
+    const j = await apiGet(`/api/history?anonUserId=${encodeURIComponent(anonUserId)}&threadId=${encodeURIComponent(activeThreadId)}`);
+    renderMsgs(j.messages);
+  }
+
+  async function refreshAll() {
+    await refreshThreads();
+    await refreshHistory();
+  }
+
+  async function ensureThread() {
+    if (activeThreadId) return activeThreadId;
+    const j = await apiPost('/api/threads', { anonUserId, title: 'New chat' });
+    activeThreadId = j.threadId;
+    $('chatTitle').textContent = 'New chat';
+    await refreshThreads();
+    return activeThreadId;
+  }
+
+  async function sendText(text) {
+    const threadId = await ensureThread();
+
+    // Optimistically render the user's question immediately (ChatGPT-style)
+    const msgsEl = $('chat');
+
+    const urow = document.createElement('div');
+    urow.className = 'bubbleRow user';
+    const ub = document.createElement('div');
+    ub.className = 'bubble user';
+    ub.textContent = text;
+    urow.appendChild(ub);
+    msgsEl.appendChild(urow);
+
+    // Transient status card while waiting
+    const srow = document.createElement('div');
+    srow.className = 'bubbleRow assistant';
+    const status = document.createElement('div');
+    status.className = 'statusCard';
+    status.innerHTML = `<div class="statusDot"></div><div>I’m checking…</div>`;
+    srow.appendChild(status);
+    msgsEl.appendChild(srow);
+
+    $('hero').classList.remove('show');
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+
+    // Send to backend (recover if threadId is stale, e.g. DEV_NODB server restart)
+    try {
+      await apiPost('/api/chat', { anonUserId, threadId, text });
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      if (msg.toLowerCase().includes('thread not found')) {
+        activeThreadId = null;
+        const j2 = await apiPost('/api/threads', { anonUserId, title: 'New chat' });
+        activeThreadId = j2.threadId;
+        $('chatTitle').textContent = 'New chat';
+        await apiPost('/api/chat', { anonUserId, threadId: activeThreadId, text });
+      } else {
+        throw e;
+      }
+    }
+
+    // auto-title if still default
+    const cur = threadsCache.find(x => x.thread_id === threadId);
+    const curTitle = cur?.title || 'New chat';
+    if (curTitle === 'New chat') {
+      const nt = autoTitleFromText(text);
+      try {
+        await apiPatch(`/api/threads/${encodeURIComponent(threadId)}`, { anonUserId, title: nt });
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    await refreshAll();
+  }
+
+  $('drawerOpen').onclick = async () => { await refreshThreads(); showDrawer(); };
+  $('drawerClose').onclick = hideDrawer;
+  $('drawerOverlay').onclick = hideDrawer;
+
+  $('newThread').onclick = async () => {
+    const j = await apiPost('/api/threads', { anonUserId, title: 'New chat' });
+    activeThreadId = j.threadId;
+    $('chatTitle').textContent = 'New chat';
+    await refreshAll();
+    hideDrawer();
+  };
+
+  $('refreshThreads').onclick = refreshAll;
+
+  $('send').onclick = async () => {
+    const ta = $('text');
+    const text = ta.value.trim();
+    if (!text) return;
+    ta.value = '';
+    await sendText(text);
+  };
+
+  $('text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      $('send').click();
+    }
+  });
+
+  document.querySelectorAll('.chip').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const p = b.getAttribute('data-prompt') || '';
+      if (!p) return;
+      await sendText(p);
+    });
+  });
+
+  refreshAll().catch(err => {
+    console.error(err);
+    alert('Init failed: ' + err.message);
+  });
+</script>
+</body>
+</html>
