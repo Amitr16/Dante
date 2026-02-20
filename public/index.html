@@ -39,7 +39,9 @@
         linear-gradient(180deg, var(--bg0), var(--bg1));
       color:var(--text);
       height:100vh;
+      height:100dvh;
       overflow:hidden;
+      padding-bottom: env(safe-area-inset-bottom);
     }
 
     .app{ display:grid; grid-template-columns: 74px 1fr; height:100vh; }
@@ -215,7 +217,7 @@
     .chip .v{ font-size: 13px; line-height:1.35; }
 
     /* Chat area */
-    .chat{ position:absolute; inset: 60px 0 96px 0; overflow:auto; padding: 8px 14px 18px 14px; scrollbar-width: thin; }
+    .chat{ position:absolute; inset: 60px 0 calc(96px + env(safe-area-inset-bottom)) 0; overflow:auto; padding: 8px 14px 18px 14px; scrollbar-width: thin; }
 
     .bubbleRow{ display:flex; margin: 14px 0; gap: 10px; }
     .bubbleRow.user{ justify-content:flex-end; }
@@ -309,7 +311,7 @@
     .miniBtn:hover{ border-color: rgba(84,240,255,0.22); background: rgba(84,240,255,0.06); }
 
     /* Composer */
-    .composerWrap{ position:absolute; left:0; right:0; bottom: 14px; display:flex; justify-content:center; padding: 0 10px; }
+    .composerWrap{ position:absolute; left:0; right:0; bottom: calc(14px + env(safe-area-inset-bottom)); display:flex; justify-content:center; padding: 0 10px; }
 
     .composer{
       width: min(980px, 100%);
@@ -390,7 +392,7 @@
       <div class="topbar">
         <div class="title">D.A.N.T.E</div>
         <div class="small" id="chatTitle" style="margin-left:10px;">New chat</div>
-        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1407</div>
+        <div class="small" style="margin-left:auto; opacity:0.65;" id="buildStamp">web-ui v2026-02-20-1510</div>
       </div>
 
       <div class="stage">
@@ -441,7 +443,7 @@
       if (!s) return;
       const chartOk = !!window.Chart;
       const ex = extra ? ` | ${extra}` : '';
-      s.textContent = `web-ui v2026-02-20-1407 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
+      s.textContent = `web-ui v2026-02-20-1510 | chart:${chartOk ? 'ok' : 'missing'}${ex}`;
     } catch {}
   }
 
